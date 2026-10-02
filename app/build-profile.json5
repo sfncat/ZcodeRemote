@@ -1,0 +1,59 @@
+{
+  "app": {
+    // 签名配置：使用 DevEco Studio 自动签名后由 IDE 自动写入真实材料
+    // （File → Project Structure → Signing Configs → Automatically generate signature），
+    // 材料位于 ~/.ohos/config/，勿提交到仓库；下方为占位模板
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "~/.ohos/config/placeholder.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "placeholder",
+          "profile": "~/.ohos/config/placeholder.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "~/.ohos/config/placeholder.p12",
+          "storePassword": "placeholder"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "compatibleSdkVersion": "26.0.0",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        },
+        "targetSdkVersion": "26.0.0"
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

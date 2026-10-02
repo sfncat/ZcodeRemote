@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "ZCode 移动端远程控制"
+    },
+    {
+      "name": "app_name",
+      "value": "ZCode Remote"
+    },
+    {
+      "name": "camera_reason",
+      "value": "扫描 ZCode 桌面端显示的二维码以完成一次性绑定"
+    }
+  ]
+}

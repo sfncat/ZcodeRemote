@@ -1,0 +1,33 @@
+# 构建产物
+app/entry/build/
+app/build/
+**/outputs/
+*.hap
+*.app
+
+# IDE / 工具链
+app/.idea/
+app/.hvigor/
+app/.deveco/
+hvigor/hvigor-config.json5.bak
+**/.cxx/
+
+# 本机配置（含机器专属路径与签名材料）
+app/local.properties
+app/build-profile.json5.backup
+
+# 签名材料（含设备 UDID 与证书，严禁提交）
+app/signing/
+
+# 依赖
+app/oh_modules/
+node_modules/
+
+# 协议研究产物（可能含真实会话数据，仅本地保留）
+research/samples/
+
+# 会话与缓存
+.zcode/
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,11 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "zcoderemote",
+  "version": "1.0.0",
+  "description": "ZCode 移动端远程控制伴侣应用（纯原生 ArkTS）",
+  "main": "",
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}

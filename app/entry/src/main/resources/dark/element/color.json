@@ -1,0 +1,33 @@
+{
+  "color": [
+    { "name": "start_window_background", "value": "#181A26" },
+    { "name": "bg_page", "value": "#14151C" },
+    { "name": "bg_card", "value": "#1E2130" },
+    { "name": "bg_input", "value": "#1E2130" },
+    { "name": "bg_code", "value": "#101218" },
+    { "name": "accent", "value": "#5B8DEF" },
+    { "name": "text_primary", "value": "#E8EAF2" },
+    { "name": "text_secondary", "value": "#9AA1B5" },
+    { "name": "text_tertiary", "value": "#5A6072" },
+    { "name": "divider", "value": "#2A2E40" },
+    { "name": "btn_secondary_bg", "value": "#2A2E40" },
+    { "name": "btn_danger_bg", "value": "#5A2830" },
+    { "name": "btn_danger_text", "value": "#FF9AA6" },
+    { "name": "error_text", "value": "#E5697A" },
+    { "name": "msg_user_bg", "value": "#232B42" },
+    { "name": "code_text", "value": "#C9D2E8" },
+    { "name": "state_ok", "value": "#5BC98C" },
+    { "name": "state_warn", "value": "#E8B45A" },
+    { "name": "state_bad", "value": "#E5697A" },
+    { "name": "state_idle", "value": "#5A6072" },
+    { "name": "chip_running", "value": "#3D6FD6" },
+    { "name": "chip_attention", "value": "#C98A2E" },
+    { "name": "chip_failed", "value": "#B54E5E" },
+    { "name": "chip_done", "value": "#3E8A62" },
+    { "name": "chip_other", "value": "#3A3F52" },
+    { "name": "role_user", "value": "#4A5F94" },
+    { "name": "role_ai", "value": "#3E8A62" },
+    { "name": "role_tool", "value": "#8A6B3E" },
+    { "name": "role_system", "value": "#4A4F62" }
+  ]
+}

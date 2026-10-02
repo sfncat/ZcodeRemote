@@ -471,10 +471,29 @@ export class ZcodeService {
     this.closeBridgeSession();
   }
 
+  /**
+   * 退出会话页时调用：把当前任务桥替换为无任务绑定的 home 桥，
+   * 使桌面端解除该任务的"被远程查看"标记；同时清空 mobileViewState.activeTaskId。
+   */
+  closeTaskBinding(workspaceKey: string): void {
+    this.forceReopenBridge();
+    this.ensureBridge(workspaceKey, '').catch(() => {
+      // home 桥打开失败静默：不影响列表页其他功能
+    });
+    this.sendApp({
+      'zcode_type': 'mobile-view-state-update',
+      'viewState': { 'activeWorkspaceKey': workspaceKey, 'updatedAt': Date.now() } as Record<string, Object>
+    } as Record<string, Object>);
+  }
+
   /** 打开（或复用）当前工作区桥 */
   async ensureBridge(workspaceKey: string, taskId: string): Promise<BridgeSession> {
     if (this.bridge !== undefined && this.bridge.workspaceKey === workspaceKey) {
-      return this.bridge;
+      // 同工作区还要求任务绑定一致：home 桥（无任务）不能复用为任务桥，反之亦然
+      const bound = this.bridge.initialTaskId;
+      if (taskId.length === 0 ? bound.length === 0 : bound === taskId) {
+        return this.bridge;
+      }
     }
     // 并发守卫：已有开桥流程进行中时，等它结束再重试一次（避免孤儿 Promise 与重复 open 帧）
     if (this.pendingBridge !== undefined) {

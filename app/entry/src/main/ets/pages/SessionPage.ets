@@ -66,6 +66,8 @@ struct SessionPage {
 
   aboutToDisappear(): void {
     this.stopPolling();
+    // 解除任务绑定：替换为 home 桥，桌面端"被远程查看"标记随此消失
+    this.service.closeTaskBinding(this.workspaceKey);
     if (this.serviceListener !== undefined) {
       this.service.removeListener(this.serviceListener);
       this.serviceListener = undefined;

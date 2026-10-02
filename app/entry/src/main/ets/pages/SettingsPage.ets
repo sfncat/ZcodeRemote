@@ -160,7 +160,6 @@ struct SettingsPage {
       }
       .layoutWeight(1)
       .width('100%')
-      .padding({ bottom: this.navBarHeight })
     }
     .width('100%')
     .height('100%')

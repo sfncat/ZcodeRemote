@@ -337,7 +337,7 @@ struct Index {
         }
         .width('100%')
         .height('100%')
-        .padding({ left: 10, right: 10, bottom: this.navBarHeight + 12 })
+        .padding({ left: 10, right: 10 })
       }
       .layoutWeight(1)
       .onRefreshing(() => {

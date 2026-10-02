@@ -357,8 +357,19 @@ struct Index {
       Text(this.stateText())
         .fontSize(11)
         .fontColor($r('app.color.text_secondary'))
+      if (this.connState !== 'paired' && this.connState !== 'idle') {
+        Text('点击重连')
+          .fontSize(10)
+          .fontColor($r('app.color.accent'))
+      }
     }
     .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      if (this.connState !== 'paired') {
+        this.service.startConnect();
+        promptAction.showToast({ message: '正在重新连接…', duration: 1500 });
+      }
+    })
   }
 
   private stateColor(): ResourceColor {
@@ -419,16 +430,10 @@ struct Index {
       .width('100%')
       .alignItems(VerticalAlign.Center)
 
-      Row() {
-        Text(formatTime(task.updatedAt))
-          .fontSize(10)
-          .fontColor($r('app.color.text_tertiary'))
-        Blank()
-        Text('查看 ›')
-          .fontSize(11)
-          .fontColor($r('app.color.accent'))
-      }
-      .width('100%')
+      Text(formatTime(task.updatedAt))
+        .fontSize(10)
+        .fontColor($r('app.color.text_tertiary'))
+        .width('100%')
     }
     .padding(10)
     .borderRadius(10)

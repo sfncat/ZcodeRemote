@@ -960,6 +960,17 @@ function parseModelConfig(snapshot: Record<string, Object>): ModelConfig {
 
 /** 按工作区分组任务（组内: 置顶优先 + updatedAt 降序；组间: 组内最新任务时间降序） */
 function buildGroups(workspaces: Array<WorkspaceItem>, tasks: Array<TaskItem>): Array<TaskGroup> {
+  // 全局按 taskId 去重：bootstrap 与全量合并的竞态可能引入重复
+  const seenIds = new Set<string>();
+  const uniqueTasks: Array<TaskItem> = [];
+  for (const t of tasks) {
+    if (t.archived || seenIds.has(t.taskId)) {
+      continue;
+    }
+    seenIds.add(t.taskId);
+    uniqueTasks.push(t);
+  }
+  tasks = uniqueTasks;
   const groups: Array<TaskGroup> = [];
   const used = new Set<string>();
   for (const w of workspaces) {

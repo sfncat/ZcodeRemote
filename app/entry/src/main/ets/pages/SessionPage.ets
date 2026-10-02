@@ -1,6 +1,7 @@
 import { promptAction, router } from '@kit.ArkUI';
 import { ChatMessage, ContentPart, ToolCall, SnapshotRuntime, PermissionRequest,
   PermissionOption, ElicitationRequest, ModelOption, ModelConfig, SessionMetaInfo,
+  ModelSelectionView, ModelProviderGroup, ModelEntry,
   formatTime, statusKind, formatTokens, modeLabel } from '../model/Models';
 import { AppError } from '../model/AppError';
 import { ZcodeService } from '../service/ZcodeService';
@@ -20,6 +21,7 @@ struct SessionPage {
   @State runtime: SnapshotRuntime = new SnapshotRuntime();
   @State meta: SessionMetaInfo = new SessionMetaInfo();
   @State config: ModelConfig = new ModelConfig();
+  @State modelView: ModelSelectionView = new ModelSelectionView();
   @State sending: boolean = false;
   private service: ZcodeService = ZcodeService.getInstance();
   private taskId: string = '';
@@ -42,6 +44,8 @@ struct SessionPage {
   private connDetail: string = '';
   /** 卡片展开状态表（键 = uid），卡片重建后可恢复 */
   @State openMap: Record<string, boolean> = {} as Record<string, boolean>;
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  @StorageProp('navBarHeight') navBarHeight: number = 0;
   private serviceListener: (() => void) | undefined = undefined;
 
   aboutToAppear(): void {
@@ -87,10 +91,22 @@ struct SessionPage {
       await this.bridge.channel.waitReady(3000);
       await this.pollOnce(true);
       this.startPolling();
+      this.refreshModelView();
     } catch (e) {
       this.loadError = e instanceof Error ? (e as Error).message : '打开会话失败';
       this.loading = false;
     }
+  }
+
+  /** 拉取模型注册表视图（与桌面选择器同源）；失败时回退 configOptions 平铺 */
+  private refreshModelView(): void {
+    this.service.fetchModelSelectionView(this.workspacePath)
+      .then((view: ModelSelectionView) => {
+        this.modelView = view;
+      })
+      .catch((e: Error) => {
+        // 视图获取失败不影响主流程，模型菜单回退 configOptions
+      });
   }
 
   private startPolling(): void {
@@ -121,6 +137,8 @@ struct SessionPage {
         this.runtime = result.runtime;
         this.meta = result.meta;
         this.config = result.config;
+        // 注册表标称窗口优先（session 层记录的可能是压缩阈值）
+        this.applyRegistryContextWindow();
         this.loadError = '';
         this.scrollToLatest(first);
       }
@@ -218,7 +236,7 @@ struct SessionPage {
           })
       }
       .width('100%')
-      .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+      .padding({ left: 10, right: 10, top: this.statusBarHeight + 6, bottom: 6 })
 
       // 会话状态条: 上下文占用 + 模型 + 思考 + 模式
       Row({ space: 8 }) {
@@ -355,13 +373,28 @@ struct SessionPage {
         })
       }
       .width('100%')
-      .padding({ left: 10, right: 10, top: 4, bottom: 6 })
+      .padding({ left: 10, right: 10, top: 4, bottom: this.navBarHeight + 6 })
       .backgroundColor($r('app.color.bg_page'))
     }
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_page'))
-    .expandSafeArea()
+  }
+
+  /** 用模型注册表标称窗口覆盖 session 层分母（若视图已加载且能匹配当前模型） */
+  private applyRegistryContextWindow(): void {
+    if (this.modelView.providers.length === 0 || this.meta.model.length === 0) {
+      return;
+    }
+    for (const prov of this.modelView.providers) {
+      for (const m of prov.models) {
+        const value = prov.providerId + '/' + m.modelId;
+        if (value === this.meta.model && m.contextWindow > 0) {
+          this.runtime.contextSize = m.contextWindow;
+          return;
+        }
+      }
+    }
   }
 
   private ctxPercent(): number {
@@ -407,11 +440,34 @@ struct SessionPage {
 
   private buildModelMenu(): Array<MenuElement> {
     const items: Array<MenuElement> = [];
-    const currentId = this.config.currentModelId();
+    // 首选注册表视图：仅含已开启渠道与已启用模型，按渠道分组（与桌面客户端一致）
+    if (this.modelView.providers.length > 0) {
+      for (const prov of this.modelView.providers) {
+        items.push({
+          value: '── ' + prov.providerName + ' ──',
+          action: (): void => {
+          }
+        });
+        for (const m of prov.models) {
+          const value = prov.providerId + '/' + m.modelId;
+          const isCurrent = this.isCurrentModel(value);
+          const label = (isCurrent ? '✓ ' : '') + m.modelId;
+          items.push({
+            value: label,
+            action: (): void => {
+              this.onSwitchModelById(prov.providerId, m.modelId, m.contextWindow, m.thoughtLevels);
+            }
+          });
+        }
+      }
+      return items;
+    }
+    // 回退：configOptions 平铺（视图获取失败时保证可用）
     for (const opt of this.config.options) {
-      const isCurrent = opt.value === currentId;
+      const isCurrent = opt.value === this.config.currentValue ||
+        (opt.value === this.config.currentModelId() + '$' + this.thoughtLabel());
       const item: MenuElement = {
-        value: (isCurrent ? '✓ ' : '') + opt.name + (opt.defaultThoughtLevel.length > 0 ? ' (' + opt.defaultThoughtLevel + ')' : ''),
+        value: (isCurrent ? '✓ ' : '') + opt.name + ' · ' + opt.modelProviderName,
         action: (): void => {
           this.onSwitchModel(opt);
         }
@@ -421,11 +477,23 @@ struct SessionPage {
     return items;
   }
 
+  /** 当前选中值 = providerId/modelId（与 configOptions value 同格式） */
+  private isCurrentModel(value: string): boolean {
+    const currentFull = this.meta.model;
+    if (currentFull === value) {
+      return true;
+    }
+    // meta.model 与 value 同为 provider/model 格式
+    const slash = currentFull.lastIndexOf('/');
+    const currentModel = slash > 0 ? currentFull.substring(slash + 1) : currentFull;
+    const valueModel = value.substring(value.lastIndexOf('/') + 1);
+    const valueProvider = value.substring(0, value.lastIndexOf('/'));
+    return currentModel === valueModel && currentFull.indexOf(valueProvider) >= 0;
+  }
+
   private buildThoughtMenu(): Array<MenuElement> {
     const items: Array<MenuElement> = [];
-    const opt = this.config.currentOption();
-    const levels = opt !== undefined && opt.thoughtLevels.length > 0
-      ? opt.thoughtLevels : ['low', 'high', 'max'];
+    const levels = this.currentThoughtLevels();
     const current = this.thoughtLabel();
     for (const lv of levels) {
       const isCurrent = lv === current;
@@ -454,6 +522,60 @@ struct SessionPage {
       items.push(item);
     }
     return items;
+  }
+
+  private currentThoughtLevels(): Array<string> {
+    // 注册表视图当前模型的思考级别
+    const slash = this.meta.model.lastIndexOf('/');
+    const providerId = slash > 0 ? this.meta.model.substring(0, slash) : '';
+    const modelId = slash > 0 ? this.meta.model.substring(slash + 1) : this.meta.model;
+    for (const prov of this.modelView.providers) {
+      if (prov.providerId !== providerId) {
+        continue;
+      }
+      for (const m of prov.models) {
+        if (m.modelId === modelId && m.thoughtLevels.length > 0) {
+          return m.thoughtLevels;
+        }
+      }
+    }
+    // 回退 configOptions
+    const opt = this.config.currentOption();
+    if (opt !== undefined && opt.thoughtLevels.length > 0) {
+      return opt.thoughtLevels;
+    }
+    const fallback: Array<string> = ['low', 'high', 'max'];
+    return fallback;
+  }
+
+  /** 按注册表视图切换模型（providerId/modelId） */
+  private onSwitchModelById(providerId: string, modelId: string, contextWindow: number,
+    thoughtLevels: Array<string>): void {
+    const value = providerId + '/' + modelId;
+    this.sending = true;
+    this.service.setModel(this.taskId, this.workspacePath, value)
+      .then(() => {
+        promptAction.showToast({ message: '模型已切换: ' + modelId, duration: 1500 });
+        // 同步切换到该模型默认思考档位（取其级别列表的 max/末位，与桌面默认行为一致）
+        const level = thoughtLevels.length > 0 ? thoughtLevels[thoughtLevels.length - 1] : '';
+        if (level.length > 0) {
+          return this.service.setThoughtLevel(this.taskId, this.workspacePath, level);
+        }
+        return Promise.resolve();
+      })
+      .then(() => {
+        this.sending = false;
+        // 用注册表 contextWindow 立即修正分母
+        if (contextWindow > 0) {
+          this.runtime.contextSize = contextWindow;
+        }
+        this.refreshModelView();
+        this.pollOnce(false);
+      })
+      .catch((e: Error) => {
+        this.sending = false;
+        promptAction.showToast({ message: '切换失败: ' + e.message, duration: 2500 });
+      });
   }
 
   private onSwitchModel(opt: ModelOption): void {

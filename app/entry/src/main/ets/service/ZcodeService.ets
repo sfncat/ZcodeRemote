@@ -5,6 +5,7 @@ import { FrameIdentity } from '../protocol/FrameCodec';
 import { RelayClient, STATE_CLOSED, STATE_ERROR, STATE_PAIRED } from '../protocol/RelayClient';
 import { jArr, jNum, jRec, jStr, jBool, parseObj } from '../protocol/Json';
 import { BindingInfo, SnapshotResult, SnapshotRuntime, SessionMetaInfo, ModelConfig, ModelOption,
+  ModelSelectionView, ModelProviderGroup, ModelEntry,
   TaskItem, TaskGroup, WorkspaceItem, ChatMessage, ContentPart, ToolCall,
   PermissionRequest, PermissionOption, ElicitationRequest,
   THOUGHT_MAX, TOOL_OUTPUT_MAX, TOOL_INPUT_MAX, truncateText, genClientId } from '../model/Models';
@@ -648,6 +649,79 @@ export class ZcodeService {
     return result;
   }
 
+  /**
+   * 拉取模型选择注册表视图（与桌面端选择器同源）：
+   * 仅含已开启渠道与已启用模型，带模型标称 contextWindow 与思考级别。
+   */
+  async fetchModelSelectionView(workspacePath: string): Promise<ModelSelectionView> {
+    if (this.bridge === undefined) {
+      return await Promise.reject(new Error('桥未就绪'));
+    }
+    const args: Record<string, Object> = {
+      'workspacePath': workspacePath
+    };
+    const identity = this.workspaceIdentityOf(workspacePath);
+    if (identity.length > 0) {
+      args['workspaceIdentity'] = identity;
+    }
+    const argArray: Array<Object> = [args];
+    const dataJson = await this.bridge.channel.request('model-selection', 'getView',
+      JSON.stringify(argArray), 20000);
+    const view = new ModelSelectionView();
+    const data = parseObj(dataJson);
+    if (data === undefined) {
+      return view;
+    }
+    const provArr = jArr(data, 'providers');
+    for (const pv of provArr) {
+      const prec = jRec({ 'v': pv } as Record<string, Object>, 'v');
+      if (prec === undefined) {
+        continue;
+      }
+      const group = new ModelProviderGroup();
+      group.providerId = jStr(prec, 'providerId');
+      group.providerName = jStr(prec, 'providerName');
+      if (group.providerName.length === 0) {
+        group.providerName = group.providerId;
+      }
+      const modelArr = jArr(prec, 'models');
+      for (const m of modelArr) {
+        const mrec = jRec({ 'v': m } as Record<string, Object>, 'v');
+        if (mrec === undefined) {
+          continue;
+        }
+        const entry = new ModelEntry();
+        entry.modelId = jStr(mrec, 'modelId');
+        const cfg = jRec(mrec, 'config');
+        if (cfg !== undefined) {
+          const props = jRec(cfg, 'properties');
+          if (props !== undefined) {
+            entry.contextWindow = jNum(props, 'contextWindow');
+          }
+          const specs = jRec(cfg, 'optionSpecs');
+          if (specs !== undefined) {
+            const rl = jRec(specs, 'reasoningLevel');
+            if (rl !== undefined) {
+              for (const lv of jArr(rl, 'values')) {
+                if (typeof lv === 'string') {
+                  entry.thoughtLevels.push(lv as string);
+                }
+              }
+            }
+          }
+        }
+        if (entry.modelId.length > 0) {
+          group.models.push(entry);
+        }
+      }
+      if (group.models.length > 0) {
+        view.providers.push(group);
+      }
+    }
+    hilog.info(0x0000, TAG, '[svc] model view: providers=%{public}d', view.providers.length);
+    return view;
+  }
+
   /** 切换模型 */
   async setModel(taskId: string, workspacePath: string, model: string): Promise<void> {
     await this.agentSessionCall(taskId, workspacePath, 'setModel', (args: Record<string, Object>): void => {
@@ -867,6 +941,7 @@ function parseModelConfig(snapshot: Record<string, Object>): ModelConfig {
       const opt = new ModelOption();
       opt.value = jStr(orec, 'value');
       opt.name = jStr(orec, 'name');
+      opt.modelProviderName = jStr(orec, 'modelProviderName');
       opt.defaultThoughtLevel = jStr(orec, 'modelDefaultThoughtLevel');
       const lvArr = jArr(orec, 'modelThoughtLevels');
       for (const lv of lvArr) {

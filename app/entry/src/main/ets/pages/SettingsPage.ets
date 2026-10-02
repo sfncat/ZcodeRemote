@@ -15,6 +15,8 @@ struct SettingsPage {
   @State endpoint: string = 'wss://zcode.z.ai/ws';
   private service: ZcodeService = ZcodeService.getInstance();
   private listener: (() => void) | undefined = undefined;
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  @StorageProp('navBarHeight') navBarHeight: number = 0;
 
   aboutToAppear(): void {
     this.refresh();
@@ -88,7 +90,7 @@ struct SettingsPage {
           .layoutWeight(1)
       }
       .width('100%')
-      .padding({ left: 12, right: 16, top: 10, bottom: 14 })
+      .padding({ left: 12, right: 16, top: this.statusBarHeight + 10, bottom: 14 })
 
       Scroll() {
         Column({ space: 12 }) {
@@ -158,11 +160,11 @@ struct SettingsPage {
       }
       .layoutWeight(1)
       .width('100%')
+      .padding({ bottom: this.navBarHeight })
     }
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg_page'))
-    .expandSafeArea()
 
   }
 

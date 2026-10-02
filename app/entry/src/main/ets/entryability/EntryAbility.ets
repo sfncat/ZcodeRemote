@@ -1,6 +1,7 @@
 import { UIAbility, Configuration, ConfigurationConstant, errorManager } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { display } from '@kit.ArkUI';
 import { ZcodeService } from '../service/ZcodeService';
 import { BindingStore } from '../store/BindingStore';
 
@@ -32,7 +33,7 @@ export default class EntryAbility extends UIAbility {
         return;
       }
       this.applyColorModePreference();
-      this.updateSystemBar();
+      this.setupFullScreen(windowStage);
       ZcodeService.getInstance().initialize().catch((e: Error) => {
         hilog.error(0x0000, TAG, 'initialize failed: %{public}s', e.message);
       });
@@ -54,6 +55,54 @@ export default class EntryAbility extends UIAbility {
       appCtx.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
     } else {
       appCtx.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+    }
+  }
+
+  /**
+   * 窗口级全屏：布局以真实屏幕为画布，页面自行用状态栏高度做顶部避让，
+   * 底部列表内容自然穿过导航条（手势条悬浮叠加在内容上）。
+   */
+  private setupFullScreen(windowStage: window.WindowStage): void {
+    windowStage.getMainWindow((err, mainWin) => {
+      if (err !== undefined && err.code !== 0) {
+        hilog.error(0x0000, TAG, 'getMainWindow failed: %{public}s', JSON.stringify(err));
+        return;
+      }
+      // 尽早执行：避免首页在高度发布前完成布局
+      this.publishAvoidAreaHeights(mainWin);
+      mainWin.setWindowLayoutFullScreen(true, (fsErr) => {
+        if (fsErr !== undefined && fsErr.code !== 0) {
+          hilog.error(0x0000, TAG, 'setWindowLayoutFullScreen failed: %{public}s', JSON.stringify(fsErr));
+        }
+        this.publishAvoidAreaHeights(mainWin);
+        this.updateSystemBar();
+        // 折叠屏展开/收起、转屏等窗口尺寸变化时刷新高度
+        mainWin.on('windowSizeChange', () => {
+          this.publishAvoidAreaHeights(mainWin);
+        });
+      });
+    });
+  }
+
+  /** 状态栏/导航条高度写入 AppStorage，供页面做顶部避让与底部缓冲 */
+  private publishAvoidAreaHeights(mainWin: window.Window): void {
+    try {
+      const system = mainWin.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      const indicator = mainWin.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+      // px -> vp：用物理屏幕密度换算（Ability 上下文无 UI 依赖）
+      const density = display.getDefaultDisplaySync().densityPixels;
+      if (density <= 0) {
+        return;
+      }
+      const statusBar = system.topRect.height / density;
+      const navBar = indicator.bottomRect.height / density;
+      AppStorage.setOrCreate('statusBarHeight', statusBar);
+      AppStorage.setOrCreate('navBarHeight', navBar);
+      hilog.info(0x0000, TAG, 'avoid areas: statusBar=%{public}s navBar=%{public}s', String(statusBar), String(navBar));
+      this.updateSystemBar();
+    } catch (e) {
+      hilog.warn(0x0000, TAG, 'publishAvoidAreaHeights failed: %{public}s',
+        e instanceof Error ? (e as Error).message : '?');
     }
   }
 

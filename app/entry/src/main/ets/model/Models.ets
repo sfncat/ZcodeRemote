@@ -187,8 +187,28 @@ export class SessionMetaInfo {
 export class ModelOption {
   value: string = '';
   name: string = '';
+  modelProviderName: string = '';
   thoughtLevels: Array<string> = new Array<string>();
   defaultThoughtLevel: string = '';
+}
+
+/** 已启用渠道下的模型项（来自 model-selection 注册表视图） */
+export class ModelEntry {
+  modelId: string = '';
+  contextWindow: number = 0;
+  thoughtLevels: Array<string> = new Array<string>();
+}
+
+/** 已启用的模型渠道（注册表视图，仅含开启的渠道与模型） */
+export class ModelProviderGroup {
+  providerId: string = '';
+  providerName: string = '';
+  models: Array<ModelEntry> = new Array<ModelEntry>();
+}
+
+/** 模型选择注册表视图 */
+export class ModelSelectionView {
+  providers: Array<ModelProviderGroup> = new Array<ModelProviderGroup>();
 }
 
 /** 模型选择配置 */

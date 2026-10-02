@@ -15,6 +15,8 @@ struct Index {
   @State groups: Array<TaskGroup> = [];
   @State collapsedKeys: Array<string> = [];
   @State lastError: string = '';
+  @StorageProp('statusBarHeight') statusBarHeight: number = 0;
+  @StorageProp('navBarHeight') navBarHeight: number = 0;
   @State refreshing: boolean = false;
   @State bindError: string = '';
   @State pasteUrl: string = '';
@@ -54,6 +56,7 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+    .padding({ top: this.statusBarHeight })
     .backgroundColor($r('app.color.bg_page'))
     .expandSafeArea()
   }
@@ -334,8 +337,7 @@ struct Index {
         }
         .width('100%')
         .height('100%')
-        .padding({ left: 10, right: 10, bottom: 52 })
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
+        .padding({ left: 10, right: 10, bottom: this.navBarHeight + 12 })
       }
       .layoutWeight(1)
       .onRefreshing(() => {
